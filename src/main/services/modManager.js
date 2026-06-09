@@ -1091,6 +1091,7 @@ async function performScan(manualPaths = null) {
 
 			// ── CONSOLIDATED MOD METADATA REFINEMENT ──
 			const modObj = mods[mods.length - 1];
+			const allTracking = cache.getAllModTracking();
 			const trackingInfo = allTracking.find(t => String(t.mod_id) === String(modObj.modId));
 			const category = (trackingInfo?.category || '').toUpperCase();
 			const isMapViaCategory = category.includes('MAP');
