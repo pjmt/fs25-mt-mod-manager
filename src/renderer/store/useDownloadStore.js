@@ -65,25 +65,30 @@ export const useDownloadStore = create((set, get) => ({
   },
 
   setProgress: (modId, progressData) => {
-    const active = get().activeDownloads[modId];
-    if (!active) return;
+    // Fallback: create a stub entry if the renderer has not yet registered this download,
+    // so we do not silently drop the final 100% event when the main process beats the UI
+    // into registering the download.
+    const existing = get().activeDownloads[modId];
+    const progress = typeof progressData === "object" ? progressData.percent : progressData;
+    const receivedBytes = typeof progressData === "object" ? progressData.receivedBytes : (existing ? existing.receivedBytes : 0);
+    const totalBytes = typeof progressData === "object" ? progressData.totalBytes : (existing ? existing.totalBytes : 0);
+    const numericProgress = typeof progress === "number" ? progress : (existing ? existing.progress : 0);
 
-    const progress = typeof progressData === 'object' ? progressData.percent : progressData;
-    const receivedBytes = typeof progressData === 'object' ? progressData.receivedBytes : active.receivedBytes;
-    const totalBytes = typeof progressData === 'object' ? progressData.totalBytes : active.totalBytes;
-
-    set((s) => ({
-      activeDownloads: {
-        ...s.activeDownloads,
-        [modId]: { 
-          ...active, 
-          progress: typeof progress === 'number' ? progress : active.progress, 
-          receivedBytes, 
-          totalBytes,
-          status: 'downloading' 
+    set((s) => {
+      const active = s.activeDownloads[modId] || { modId: modId, title: String(modId), progress: 0, status: "waiting" };
+      return {
+        activeDownloads: {
+          ...s.activeDownloads,
+          [modId]: {
+            ...active,
+            progress: numericProgress,
+            receivedBytes: receivedBytes,
+            totalBytes: totalBytes,
+            status: numericProgress >= 100 ? "finalizing" : "downloading",
+          },
         },
-      },
-    }));
+      };
+    });
   },
 
   removeDownload: (modId) => {

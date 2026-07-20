@@ -1630,6 +1630,17 @@ async function installModInternal(modId, modTitle, downloadUrl, onProgress, cate
 				item.once('done', (event, state) => {
 					debugLog(`[INSTALL] Window download done for ${modId}. State: ${state}`);
 					if (state === 'completed') {
+						// Always emit a final 100% tick so the UI can transition out of indeterminate,
+						// even if the last 'progressing' event reported a lower value.
+						try {
+							const finalBytes = item.getReceivedBytes() || totalBytes;
+							onProgress?.({
+								percent: 100,
+								receivedBytes: finalBytes,
+								totalBytes: finalBytes,
+								fileName,
+							});
+						} catch (_) { /* noop */ }
 						try {
 							const relativePath = path.relative(getModsPath(), savePath);
 							cache.setModTracking(modId, { 
@@ -1846,6 +1857,15 @@ function downloadWithNet(modId, url, modsPath, modTitle, onProgress, category, r
 
 			response.on('end', () => {
 				fileStream.end();
+				// Always emit a final 100% so the UI can transition out of indeterminate,
+				// even if the throttle gate never fired the last percent.
+				const finalBytes = receivedBytes;
+				onProgress?.({
+					percent: 100,
+					receivedBytes: totalBytes || finalBytes,
+					totalBytes: totalBytes || finalBytes,
+					fileName,
+				});
 			});
 
 			response.on('error', (err) => {
